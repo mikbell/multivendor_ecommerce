@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Inter, Barlow } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
@@ -26,17 +27,19 @@ export default function RootLayout({
 	children: React.ReactNode;
 }>) {
 	return (
-		<html lang="it" suppressHydrationWarning>
-			<body
-				className={`${interFont.variable} ${barlowFont.variable} antialiased`}>
-				<ThemeProvider
-					attribute="class"
-					defaultTheme="system"
-					enableSystem
-					disableTransitionOnChange>
-					{children}
-				</ThemeProvider>
-			</body>
-		</html>
+		<ClerkProvider>
+			<html lang="it" suppressHydrationWarning>
+				<body
+					className={`${interFont.variable} ${barlowFont.variable} antialiased`}>
+					<ThemeProvider
+						attribute="class"
+						defaultTheme="system"
+						enableSystem
+						disableTransitionOnChange>
+						{children}
+					</ThemeProvider>
+				</body>
+			</html>
+		</ClerkProvider>
 	);
 }
