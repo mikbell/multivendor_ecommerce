@@ -27,7 +27,7 @@ export default function RootLayout({
 	children: React.ReactNode;
 }>) {
 	return (
-		<ClerkProvider>
+		<ClerkProvider afterSignOutUrl="/">
 			<html lang="it" suppressHydrationWarning>
 				<body
 					className={`${interFont.variable} ${barlowFont.variable} antialiased`}>

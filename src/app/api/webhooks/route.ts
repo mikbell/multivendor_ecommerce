@@ -1,4 +1,4 @@
-import { WebhookEvent, clerkClient } from "@clerk/nextjs/server"; // clerkClient è una funzione
+import { WebhookEvent, clerkClient } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { Webhook } from "svix";
@@ -6,21 +6,24 @@ import { db } from "@/lib/db";
 
 /**
  * Gestisce i webhook in entrata da Clerk per sincronizzare i dati degli utenti
- * con il database locale utilizzando Prisma.
+ * (creazione, aggiornamento, eliminazione) con il database locale utilizzando Prisma.
  */
 export async function POST(req: NextRequest) {
 	// 1. --- VERIFICA DEL WEBHOOK ---
 	const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
 	if (!WEBHOOK_SECRET) {
-		throw new Error(
-			"La variabile d'ambiente CLERK_WEBHOOK_SECRET non è impostata."
+		console.error(
+			"ERRORE CRITICO: La variabile d'ambiente CLERK_WEBHOOK_SECRET non è impostata."
 		);
+		return new NextResponse("Errore di configurazione interna", {
+			status: 500,
+		});
 	}
 
 	const headerPayload = headers();
-	const svix_id = (await headerPayload).get("svix-id");
-	const svix_timestamp = (await headerPayload).get("svix-timestamp");
-	const svix_signature = (await headerPayload).get("svix-signature");
+	const svix_id = headerPayload.get("svix-id");
+	const svix_timestamp = headerPayload.get("svix-timestamp");
+	const svix_signature = headerPayload.get("svix-signature");
 
 	if (!svix_id || !svix_timestamp || !svix_signature) {
 		return new NextResponse("Errore: header del webhook mancanti", {
@@ -50,6 +53,7 @@ export async function POST(req: NextRequest) {
 	const eventType = evt.type;
 	console.log(`Evento webhook ricevuto: ${eventType}`);
 
+	// GESTIONE DELLA CREAZIONE/AGGIORNAMENTO
 	if (eventType === "user.created" || eventType === "user.updated") {
 		const { id, email_addresses, image_url, first_name, last_name } = evt.data;
 
@@ -75,31 +79,57 @@ export async function POST(req: NextRequest) {
 			});
 
 			console.log(
-				`Utente ${id} ${
+				`[DB SYNC] Utente ${id} ${
 					eventType === "user.created" ? "creato" : "aggiornato"
-				} nel database.`
+				}.`
 			);
 
-			// --- LA CORREZIONE È QUI ---
-			// Chiama clerkClient() come una funzione per ottenere l'istanza del client.
+			// Sincronizza i metadati di Clerk
 			const client = await clerkClient();
 			await client.users.updateUserMetadata(id, {
-				privateMetadata: {
-					role: dbUser.role || "USER",
-				},
+				privateMetadata: { role: dbUser.role || "USER" },
 			});
-			// --- FINE DELLA CORREZIONE ---
+			console.log(`[CLERK METADATA] Metadati aggiornati per l'utente: ${id}.`);
+		} catch (error) {
+			console.error("[UPSERT FALLITO]", error);
+			return new NextResponse("Errore durante la scrittura sul database", {
+				status: 500,
+			});
+		}
+	}
 
-			console.log(`Metadati di Clerk aggiornati per l'utente: ${id}`);
-		} catch (dbError) {
-			console.error(
-				"Errore durante l'operazione sul database o l'aggiornamento dei metadati:",
-				dbError
-			);
+	// GESTIONE DELL'ELIMINAZIONE (NUOVO BLOCCO)
+	if (eventType === "user.deleted") {
+		const { id } = evt.data;
+
+		// Se l'ID non è presente, non possiamo fare nulla.
+		if (!id) {
 			return new NextResponse(
-				"Errore interno del server durante la scrittura nel database",
-				{ status: 500 }
+				"Errore: ID mancante nei dati del webhook per l'eliminazione",
+				{ status: 400 }
 			);
+		}
+
+		try {
+			// Elimina l'utente dal database.
+			// Aggiungiamo un controllo per l'utente `deleted` per evitare errori se non esiste più.
+			const deletedUser = await db.user.delete({
+				where: { id: id },
+			});
+			console.log(`[DB SYNC] Utente ${deletedUser.id} eliminato con successo.`);
+		} catch (error: any) {
+			// Se l'utente non viene trovato (magari è già stato eliminato), non è un errore critico.
+			if (error?.code === "P2025") {
+				// Codice errore Prisma per "Record to delete does not exist."
+				console.warn(
+					`[DB SYNC] Tentativo di eliminare l'utente ${id} che non esisteva nel database.`
+				);
+			} else {
+				console.error("[DELETE FALLITO]", error);
+				return new NextResponse("Errore durante l'eliminazione dal database", {
+					status: 500,
+				});
+			}
 		}
 	}
 

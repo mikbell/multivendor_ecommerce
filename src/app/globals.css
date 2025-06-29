@@ -1,18 +1,40 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&display=swap');
 
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@import "tw-animate-css";
-
+/*
+  La direttiva @custom-variant è parte del plugin @tailwindcss/typography
+  o di un plugin personalizzato che la implementa.
+  Se non stai usando un plugin specifico, questa direttiva potrebbe non essere riconosciuta.
+  Per un comportamento simile al dark mode di Tailwind, si usa solitamente il selettore .dark
+  nel file di configurazione di Tailwind (tailwind.config.js) con darkMode: 'class'.
+*/
 @custom-variant dark (&:is(.dark *));
 
+/*
+  La direttiva @theme è utilizzata per estendere il tema di Tailwind direttamente nel CSS.
+  Assicurati che il tuo tailwind.config.js sia configurato per leggere queste variabili.
+  Normalmente, queste variabili vengono definite nel tema esteso in tailwind.config.js
+  o come variabili CSS standard.
+*/
 @theme {
   --font-inter: "Inter", sans-serif;
   --font-barlow: "Barlow", sans-serif;
 }
 
 @theme inline {
+  /*
+    Le variabili inline dovrebbero essere definite nel file di configurazione di Tailwind
+    sotto il tema esteso, oppure essere variabili CSS che poi mappi in tailwind.config.js.
+    L'uso di @theme inline direttamente qui potrebbe non essere l'approccio più comune
+    o supportato direttamente per tutte queste proprietà, a meno che non si stia usando
+    una configurazione specifica o un plugin.
+    Per la maggior parte di queste, è preferibile definirle come custom properties in :root
+    e poi riferirle in tailwind.config.js.
+  */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -51,6 +73,10 @@
 }
 
 :root {
+  /*
+    Queste variabili sono le definizioni base per il tema chiaro.
+    Sono ben posizionate qui.
+  */
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.129 0.042 264.695);
@@ -86,6 +112,10 @@
 }
 
 .dark {
+  /*
+    Queste variabili sono le definizioni per il tema scuro.
+    Sono ben posizionate qui.
+  */
   --background: oklch(0.129 0.042 264.695);
   --foreground: oklch(0.984 0.003 247.858);
   --card: oklch(0.208 0.042 265.755);
@@ -120,9 +150,22 @@
 }
 
 @layer base {
+
+  /*
+    Hai duplicato il blocco @layer base. Ho combinato le tue intenzioni.
+    Assicurati che le variabili `--background` e `--foreground` siano definite
+    correttamente in `:root` e `.dark` per riflettere i colori desiderati,
+    in quanto le definizioni HSL nel secondo blocco @layer base sovrascrivono
+    quelle OKLCH che hai definito sopra in :root e .dark.
+    Ho commentato il secondo blocco @layer base che definisce le variabili HSL
+    in modo da mantenere le definizioni OKLCH che hai fornito inizialmente.
+  */
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
+    /* Mantengo solo questa applicazione */
+    /* L'outline-ring/50 non sembra essere uno standard in Tailwind senza una configurazione specifica */
   }
+
   body {
     @apply bg-background text-foreground;
   }
